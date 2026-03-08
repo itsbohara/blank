@@ -65,7 +65,7 @@ SQLite database auto-created in `data/blank.db`.
 Copy `.env.local.example` to `.env.local` and set:
 - `AUTH_SECRET` - Generate with `npx auth secret`
 - `NEXTAUTH_URL` - Usually http://localhost:3000
-- `SANDBOX_API_URL` - blank-sandbox endpoint (http://localhost:3001)
+- `SANDBOX_API_URL` - blank-sandbox endpoint (http://localhost:9099)
 
 ## Important Notes
 
@@ -77,7 +77,7 @@ Copy `.env.local.example` to `.env.local` and set:
 
 ## Development Workflow
 
-1. Start blank-sandbox first (runs on :3001)
+1. Start blank-sandbox first (runs on :9099)
 2. Start blank platform: `bun run dev` (runs on :3000)
 3. Visit http://localhost:3000
 
