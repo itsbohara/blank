@@ -6,7 +6,8 @@ import {
   updateLastAccessed,
   createUserSession,
   getActiveSessionByUserId,
-  endSession
+  endSession,
+  getSessionBySandboxId
 } from "@/lib/db";
 
 const SANDBOX_API_URL = process.env.SANDBOX_API_URL || "http://localhost:3001";
@@ -77,14 +78,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Create new session if needed
+    let isNewSession = false;
     if (!sandboxData) {
       const createBody: any = {
         template: template || "nextjs",
       };
-
-      // If we have an existing session ID, try to reuse it (once blank-sandbox supports this)
-      // For now, we'll create a new session
-      // TODO: Pass existingSessionId once blank-sandbox supports session ID reuse
 
       const createResponse = await fetch(`${SANDBOX_API_URL}/api/session`, {
         method: "POST",
@@ -98,12 +96,20 @@ export async function POST(req: NextRequest) {
       }
 
       sandboxData = await createResponse.json();
-      sandboxSessionId = sandboxData.id;
+      sandboxSessionId = sandboxData.sessionId;
+      isNewSession = true;
+
+      if (!sandboxSessionId) {
+        throw new Error("Sandbox session ID not returned from API");
+      }
 
       // Update project with new session ID
       updateProjectSandboxSession(projectId, sandboxSessionId);
+    }
 
-      // Create user session record
+    // Create user session record if one doesn't already exist for this sandbox session
+    const existingUserSession = getSessionBySandboxId(sandboxSessionId);
+    if (!existingUserSession || existingUserSession.status !== 'active') {
       createUserSession({
         user_id: session.user.id,
         sandbox_session_id: sandboxSessionId,
@@ -116,12 +122,12 @@ export async function POST(req: NextRequest) {
     // 1. Redirect to it directly
     // 2. Embed it in an iframe
     // For now, we'll redirect to the sandbox editor page
-    const sandboxUrl = `${SANDBOX_API_URL}/editor?sessionId=${sandboxData.id}`;
+    const sandboxUrl = `${SANDBOX_API_URL}/editor?sessionId=${sandboxData.sessionId}`;
 
     return NextResponse.json({
       success: true,
       sandboxUrl,
-      sessionId: sandboxData.id,
+      sessionId: sandboxData.sessionId,
       mode: sandboxData.mode,
       editorUrl: sandboxData.editorUrl,
       previewUrl: sandboxData.previewUrl,

@@ -41,8 +41,17 @@ export function ProjectClient({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   useEffect(() => {
+    // Reset states when project changes
+    setIsLoading(true);
+    setError(null);
+    setSandboxUrl(null);
+    setIframeError(null);
+    setIframeLoaded(false);
+
     async function initializeSandbox() {
       try {
         const response = await fetch(`/api/sandbox/session`, {
@@ -148,12 +157,38 @@ export function ProjectClient({
       {/* Sandbox Iframe */}
       <div className="flex-1 relative">
         {sandboxUrl ? (
-          <iframe
-            src={sandboxUrl}
-            className="w-full h-full border-0"
-            allow="clipboard-read; clipboard-write"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
-          />
+          <>
+            {!iframeLoaded && !iframeError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                <p className="text-sm text-muted-foreground">Loading editor...</p>
+              </div>
+            )}
+            {iframeError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                <p className="text-red-600 mb-2">Failed to load editor</p>
+                <p className="text-sm text-muted-foreground mb-4">{iframeError}</p>
+                <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+                  Reload Page
+                </Button>
+              </div>
+            )}
+            <iframe
+              key={project.id}
+              src={sandboxUrl}
+              className="w-full h-full border-0"
+              allow="clipboard-read; clipboard-write"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
+              onLoad={() => {
+                console.log('Iframe loaded successfully');
+                setIframeLoaded(true);
+              }}
+              onError={(e) => {
+                console.error('Iframe error:', e);
+                setIframeError('Failed to load sandbox environment');
+              }}
+            />
+          </>
         ) : null}
       </div>
     </div>

@@ -1,4 +1,4 @@
-export { getDb, closeDb } from "./index";
-export * from "./users";
-export * from "./projects";
-export * from "./user-sessions";
+export { getDb, closeDb } from "./db/index";
+export * from "./db/users";
+export * from "./db/projects";
+export * from "./db/user-sessions";

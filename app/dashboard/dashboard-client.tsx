@@ -100,7 +100,9 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
   }
 
   function formatRelativeTime(dateString: string) {
-    const date = new Date(dateString);
+    // SQLite stores CURRENT_TIMESTAMP as UTC without timezone indicator
+    // Append 'Z' to treat it as UTC
+    const date = new Date(dateString + 'Z');
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);

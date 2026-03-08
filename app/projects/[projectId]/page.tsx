@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getProjectById, getActiveSessionByUserId } from "@/lib/db";
@@ -9,6 +10,29 @@ interface ProjectPageProps {
   }>;
 }
 
+// Force dynamic rendering - don't try to statically generate
+export const dynamic = "force-dynamic";
+
+async function ProjectContent({ projectId, userId }: { projectId: string; userId: string }) {
+  const project = getProjectById(projectId);
+
+  if (!project || project.user_id !== userId) {
+    redirect("/dashboard");
+  }
+
+  const activeSession = getActiveSessionByUserId(userId);
+  const existingSandboxSessionId = project.sandbox_session_id;
+
+  return (
+    <ProjectClient
+      project={project}
+      userId={userId}
+      existingSandboxSessionId={existingSandboxSessionId}
+      activeUserSession={activeSession}
+    />
+  );
+}
+
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const session = await auth();
 
@@ -17,24 +41,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   const { projectId } = await params;
-  const project = getProjectById(projectId);
-
-  if (!project || project.user_id !== session.user.id) {
-    redirect("/dashboard");
-  }
-
-  // Check for any existing active sessions for this user
-  const activeSession = getActiveSessionByUserId(session.user.id);
-  
-  // If project has a sandbox session, we'll try to reuse it
-  const existingSandboxSessionId = project.sandbox_session_id;
 
   return (
-    <ProjectClient
-      project={project}
-      userId={session.user.id}
-      existingSandboxSessionId={existingSandboxSessionId}
-      activeUserSession={activeSession}
-    />
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>
+        <p className="text-lg font-medium">Loading project...</p>
+      </div>
+    }>
+      <ProjectContent projectId={projectId} userId={session.user.id} />
+    </Suspense>
   );
 }
