@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createProject, getProjectsByUserId } from "@/lib/db";
+import { createProject, getProjectsByUserId, getArchivedProjectsByUserId } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,7 +54,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const projects = getProjectsByUserId(session.user.id);
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+
+    const projects = status === "archived" 
+      ? getArchivedProjectsByUserId(session.user.id)
+      : getProjectsByUserId(session.user.id);
 
     return NextResponse.json({ projects });
   } catch (error) {

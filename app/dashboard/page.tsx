@@ -10,11 +10,16 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const projects = getProjectsByUserId(session.user.id);
+  const userId = session.user.id!;
+  const projects = getProjectsByUserId(userId);
 
   return (
-    <DashboardClient 
-      user={session.user} 
+    <DashboardClient
+      user={{
+        id: userId,
+        email: session.user.email!,
+        name: session.user.name ?? null,
+      }}
       initialProjects={projects}
     />
   );

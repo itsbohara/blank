@@ -89,3 +89,23 @@ export function archiveProject(project_id: string): void {
   `);
   stmt.run(project_id);
 }
+
+export function unarchiveProject(project_id: string): void {
+  const db = getDb();
+  const stmt = db.prepare(`
+    UPDATE projects 
+    SET status = 'active', updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
+  stmt.run(project_id);
+}
+
+export function getArchivedProjectsByUserId(user_id: string): Project[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT * FROM projects 
+    WHERE user_id = ? AND status = 'archived'
+    ORDER BY updated_at DESC
+  `);
+  return stmt.all(user_id) as Project[];
+}

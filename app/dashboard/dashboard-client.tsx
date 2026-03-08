@@ -23,7 +23,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Folder, Clock, Loader2, LogOut } from "lucide-react";
+import { Plus, MoreVertical, Folder, Clock, Loader2, LogOut, Archive, ArchiveRestore } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 interface Project {
@@ -53,6 +53,8 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   async function createProject(e: React.FormEvent) {
     e.preventDefault();
@@ -89,6 +91,60 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
 
   async function openProject(projectId: string) {
     router.push(`/projects/${projectId}`);
+  }
+
+  async function toggleArchiveView() {
+    setIsLoading(true);
+    try {
+      const newShowArchived = !showArchived;
+      setShowArchived(newShowArchived);
+      
+      const response = await fetch(`/api/projects?status=${newShowArchived ? 'archived' : 'active'}`);
+      if (!response.ok) throw new Error("Failed to fetch projects");
+      
+      const data = await response.json();
+      setProjects(data.projects);
+    } catch (error) {
+      console.error("Failed to toggle archive view:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleArchiveProject(projectId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to archive project");
+      
+      // Remove from current list
+      setProjects(projects.filter(p => p.id !== projectId));
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+    }
+  }
+
+  async function handleUnarchiveProject(projectId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unarchive" }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to unarchive project");
+      
+      // Remove from current list
+      setProjects(projects.filter(p => p.id !== projectId));
+    } catch (error) {
+      console.error("Failed to unarchive project:", error);
+    }
   }
 
   function formatDate(dateString: string) {
@@ -148,13 +204,31 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Project
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={toggleArchiveView}
+              disabled={isLoading}
+            >
+              {showArchived ? (
+                <>
+                  <Folder className="h-4 w-4 mr-2" />
+                  View Active
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4 mr-2" />
+                  View Archived
+                </>
+              )}
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Project
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
@@ -205,6 +279,7 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Projects Grid */}
@@ -227,13 +302,18 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
             {projects.map((project) => (
               <Card 
                 key={project.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className={`cursor-pointer hover:shadow-md transition-shadow ${project.status === 'archived' ? 'opacity-75 bg-gray-50' : ''}`}
                 onClick={() => openProject(project.id)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">{project.name}</CardTitle>
+                      <CardTitle className="text-lg truncate flex items-center gap-2">
+                        {project.name}
+                        {project.status === 'archived' && (
+                          <Archive className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </CardTitle>
                       {project.description && (
                         <CardDescription className="line-clamp-2 mt-1">
                           {project.description}
@@ -252,12 +332,17 @@ export function DashboardClient({ user, initialProjects }: DashboardClientProps)
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation();
-                          // TODO: Archive project
-                        }}>
-                          Archive
-                        </DropdownMenuItem>
+                        {showArchived ? (
+                          <DropdownMenuItem onClick={(e) => handleUnarchiveProject(project.id, e as React.MouseEvent)}>
+                            <ArchiveRestore className="h-4 w-4 mr-2" />
+                            Restore
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={(e) => handleArchiveProject(project.id, e as React.MouseEvent)}>
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
