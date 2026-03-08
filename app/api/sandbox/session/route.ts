@@ -10,7 +10,7 @@ import {
   getSessionBySandboxId,
 } from "@/lib/db";
 
-const SANDBOX_API_URL = process.env.SANDBOX_API_URL || "http://localhost:3001";
+const SANDBOX_API_URL = process.env.SANDBOX_API_URL || "http://localhost:9099";
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,6 +80,13 @@ export async function POST(req: NextRequest) {
       const createBody: any = {
         template: template || "nextjs",
       };
+      
+      // If we have an existing session ID from the project, request blank-sandbox to use it
+      // This ensures files sync from/to the same S3 location
+      // Use the original existingSessionId from the request (not sandboxSessionId which may be null)
+      if (existingSessionId) {
+        createBody.sessionId = existingSessionId;
+      }
 
       const createResponse = await fetch(`${SANDBOX_API_URL}/api/session`, {
         method: "POST",
@@ -114,19 +121,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Construct the sandbox URLs
-    // The blank-sandbox runs on its own URL, we can either:
-    // 1. Redirect to it directly
-    // 2. Embed it in an iframe
-    // For now, we'll redirect to the sandbox editor page
-    const sandboxUrl = `${SANDBOX_API_URL}/editor?sessionId=${sandboxData.sessionId}`;
-    const previewUrl = `${SANDBOX_API_URL}/preview?sessionId=${sandboxData.sessionId}`;
+    // Use /editor and /preview routes for cleaner URLs
+    // The blank-sandbox will handle session validation and proxy internally
+    const sessionId = sandboxData.sessionId || sandboxSessionId;
+    const sandboxUrl = `${SANDBOX_API_URL}/editor?sessionId=${sessionId}`;
+    const previewUrl = `${SANDBOX_API_URL}/preview?sessionId=${sessionId}`;
 
     return NextResponse.json({
       success: true,
       sandboxUrl,
       previewUrl,
-      sessionId: sandboxData.sessionId,
+      sessionId: sandboxData.sessionId || sandboxSessionId,
       mode: sandboxData.mode,
     });
   } catch (error) {

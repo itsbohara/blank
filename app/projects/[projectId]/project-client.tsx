@@ -55,12 +55,16 @@ export function ProjectClient({
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [previewTimestamp, setPreviewTimestamp] = useState<number>(Date.now());
 
   useEffect(() => {
     // Reset states when project changes
     setIsLoading(true);
     setError(null);
     setSandboxUrl(null);
+    setPreviewUrl(null);
+    setSessionId(null);
     setIframeError(null);
     setIframeLoaded(false);
 
@@ -84,12 +88,14 @@ export function ProjectClient({
         const data = await response.json();
         setSandboxUrl(data.sandboxUrl);
         setPreviewUrl(data.previewUrl);
+        setSessionId(data.sessionId);
         setIsLoading(false);
       } catch (err) {
         console.error("Sandbox initialization error:", err);
         setError(
           err instanceof Error ? err.message : "Failed to initialize sandbox",
         );
+        setSessionId(null);
         setIsLoading(false);
       }
     }
@@ -204,7 +210,11 @@ export function ProjectClient({
                       <Code className="h-3.5 w-3.5" />
                       Code
                     </TabsTrigger>
-                    <TabsTrigger value="preview" className="gap-1.5 text-xs">
+                    <TabsTrigger 
+                      value="preview" 
+                      className="gap-1.5 text-xs"
+                      onClick={() => setPreviewTimestamp(Date.now())}
+                    >
                       <Eye className="h-3.5 w-3.5" />
                       Preview
                     </TabsTrigger>
@@ -215,7 +225,7 @@ export function ProjectClient({
                   </TabsList>
                 </div>
 
-                {sandboxUrl && previewUrl ? (
+                {sandboxUrl && previewUrl && sessionId ? (
                   <TabsContent
                     value="code"
                     className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
@@ -249,7 +259,7 @@ export function ProjectClient({
                       )}
 
                       <iframe
-                        key={`${project.id}-code`}
+                        key={`${sessionId}-code`}
                         src={sandboxUrl}
                         className="w-full h-full border-0"
                         allow="clipboard-read; clipboard-write"
@@ -267,14 +277,14 @@ export function ProjectClient({
                   </TabsContent>
                 ) : null}
 
-                {sandboxUrl && previewUrl ? (
+                {sandboxUrl && previewUrl && sessionId ? (
                   <TabsContent
                     value="preview"
                     className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
                     forceMount
                   >
                     <iframe
-                      key={`${project.id}-preview`}
+                      key={`${sessionId}-preview-${previewTimestamp}`}
                       src={previewUrl}
                       className="w-full h-full border-0"
                       allow="clipboard-read; clipboard-write"
@@ -283,7 +293,7 @@ export function ProjectClient({
                   </TabsContent>
                 ) : null}
 
-                {sandboxUrl && previewUrl ? (
+                {sandboxUrl && previewUrl && sessionId ? (
                   <TabsContent
                     value="split"
                     className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
@@ -301,7 +311,7 @@ export function ProjectClient({
                         )}
 
                         <iframe
-                          key={`${project.id}-code`}
+                          key={`${sessionId}-split-code`}
                           src={sandboxUrl}
                           className="w-full h-full border-0"
                           allow="clipboard-read; clipboard-write"
@@ -321,7 +331,7 @@ export function ProjectClient({
 
                       <div className="w-1/2 h-full border-l">
                         <iframe
-                          key={`${project.id}-preview`}
+                          key={`${sessionId}-split-preview-${previewTimestamp}`}
                           src={previewUrl}
                           className="w-full h-full border-0"
                           allow="clipboard-read; clipboard-write"
