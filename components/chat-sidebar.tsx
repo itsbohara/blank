@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Loader2, Terminal, FileText, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface Message {
   id: string;
@@ -52,7 +53,6 @@ export function ChatSidebar({ sessionId }: ChatSidebarProps) {
     setIsLoading(true);
     setStreamingContent("");
 
-    // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -100,7 +100,6 @@ export function ChatSidebar({ sessionId }: ChatSidebarProps) {
 
             switch (data.type) {
               case "thinking":
-                // Could show thinking indicator
                 break;
               case "assistant":
                 assistantContent = data.content;
@@ -143,7 +142,6 @@ export function ChatSidebar({ sessionId }: ChatSidebarProps) {
         }
       }
 
-      // Add assistant message
       if (assistantContent) {
         setMessages((prev) => [
           ...prev,
@@ -195,12 +193,10 @@ export function ChatSidebar({ sessionId }: ChatSidebarProps) {
 
   return (
     <div className="w-full h-full flex flex-col bg-card">
-      {/* Header */}
       <div className="h-12 border-b flex items-center px-4">
         <h3 className="font-medium text-sm">AI Assistant</h3>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground text-sm py-8">
@@ -227,7 +223,7 @@ export function ChatSidebar({ sessionId }: ChatSidebarProps) {
                     : "bg-muted"
                 )}
               >
-                {message.content}
+                <MarkdownRenderer content={message.content} />
               </div>
               {message.toolCalls && message.toolCalls.length > 0 ? (
                 <div className="w-full space-y-1">
@@ -250,7 +246,6 @@ export function ChatSidebar({ sessionId }: ChatSidebarProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <div className="p-4 border-t">
         <div className="flex gap-2">
           <Input
@@ -322,7 +317,7 @@ function ToolCallItem({ tool }: { tool: ToolCall }) {
           <pre className="whitespace-pre-wrap break-all">
             {JSON.stringify(tool.input, null, 2)}
           </pre>
-          {tool.result && (
+          {tool.result !== undefined && (
             <>
               <div className="text-muted-foreground mt-2">Result:</div>
               <pre className="whitespace-pre-wrap break-all">
@@ -330,7 +325,7 @@ function ToolCallItem({ tool }: { tool: ToolCall }) {
               </pre>
             </>
           )}
-          {tool.error && (
+          {tool.error !== undefined && (
             <div className="text-red-500 mt-2">Error: {tool.error}</div>
           )}
         </div>
