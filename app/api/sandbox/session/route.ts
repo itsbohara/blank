@@ -39,16 +39,27 @@ export async function POST(req: NextRequest) {
     // Update last accessed time
     updateLastAccessed(projectId);
 
-    // Check for any existing active sessions for this user and end them
-    // (One session at a time per user for now)
-    const activeSession = getActiveSessionByUserId(session.user.id);
-    if (activeSession && activeSession.project_id !== projectId) {
-      endSession(activeSession.id);
-    }
-
     // Try to create or reuse sandbox session
     let sandboxSessionId = existingSessionId;
     let sandboxData: any = null;
+
+    // Check for any existing active sessions for this user
+    // If the active session belongs to a different project, end it and ensure we create a fresh session
+    const activeSession = getActiveSessionByUserId(session.user.id);
+    if (activeSession && activeSession.project_id !== projectId) {
+      // Kill the sandbox container to ensure clean state
+      try {
+        await fetch(`${SANDBOX_API_URL}/api/session/${activeSession.sandbox_session_id}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.error("Failed to kill old sandbox container:", err);
+      }
+      
+      endSession(activeSession.id);
+      // Force creation of a new session for this project
+      sandboxSessionId = null;
+    }
 
     if (sandboxSessionId) {
       // Try to validate and reuse existing session
@@ -79,13 +90,14 @@ export async function POST(req: NextRequest) {
     if (!sandboxData) {
       const createBody: any = {
         template: template || "nextjs",
+        projectId: projectId,  // Pass projectId to ensure session isolation per project
       };
       
-      // If we have an existing session ID from the project, request blank-sandbox to use it
-      // This ensures files sync from/to the same S3 location
-      // Use the original existingSessionId from the request (not sandboxSessionId which may be null)
-      if (existingSessionId) {
-        createBody.sessionId = existingSessionId;
+      // Only pass sessionId if we're reusing a validated existing session
+      // If sandboxSessionId is null (validation failed or no existing session),
+      // let blank-sandbox generate a fresh session ID
+      if (sandboxSessionId) {
+        createBody.sessionId = sandboxSessionId;
       }
 
       const createResponse = await fetch(`${SANDBOX_API_URL}/api/session`, {
@@ -131,7 +143,7 @@ export async function POST(req: NextRequest) {
       success: true,
       sandboxUrl,
       previewUrl,
-      sessionId: sandboxData.sessionId || sandboxSessionId,
+      sessionId,
       mode: sandboxData.mode,
     });
   } catch (error) {

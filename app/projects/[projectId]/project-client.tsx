@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { signOut } from "next-auth/react";
+import { ChatSidebar } from "@/components/chat-sidebar";
 
 interface Project {
   id: string;
@@ -57,8 +58,13 @@ export function ProjectClient({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [previewTimestamp, setPreviewTimestamp] = useState<number>(Date.now());
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate initialization (React StrictMode double mount)
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     // Reset states when project changes
     setIsLoading(true);
     setError(null);
@@ -191,10 +197,8 @@ export function ProjectClient({
       <div className="flex-1 flex overflow-hidden">
         {/* AI Chat Sidebar */}
         {chatExpanded && (
-          <div className="w-96 border-r bg-card flex flex-col">
-            <div className="p-6 flex-1 flex items-center justify-center">
-              <p className="text-muted-foreground text-center">AI chat area</p>
-            </div>
+          <div className="w-96 border-r bg-card flex flex-col overflow-hidden">
+            <ChatSidebar sessionId={sessionId} />
           </div>
         )}
 
@@ -210,11 +214,7 @@ export function ProjectClient({
                       <Code className="h-3.5 w-3.5" />
                       Code
                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="preview" 
-                      className="gap-1.5 text-xs"
-                      onClick={() => setPreviewTimestamp(Date.now())}
-                    >
+                    <TabsTrigger value="preview" className="gap-1.5 text-xs">
                       <Eye className="h-3.5 w-3.5" />
                       Preview
                     </TabsTrigger>
