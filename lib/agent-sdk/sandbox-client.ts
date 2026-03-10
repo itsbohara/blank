@@ -15,7 +15,9 @@ const BLOCKED_COMMANDS = [
 
 function isCommandBlocked(command: string): boolean {
   const normalized = command.toLowerCase().trim();
-  return BLOCKED_COMMANDS.some((blocked) => normalized.includes(blocked.toLowerCase()));
+  return BLOCKED_COMMANDS.some((blocked) =>
+    normalized.includes(blocked.toLowerCase()),
+  );
 }
 
 export interface ReadResult {
@@ -24,7 +26,10 @@ export interface ReadResult {
   error?: string;
 }
 
-export async function readFile(sessionId: string, filePath: string): Promise<ReadResult> {
+export async function readFile(
+  sessionId: string,
+  filePath: string,
+): Promise<ReadResult> {
   try {
     // Remove leading slash and encode the path
     const encodedPath = encodeURIComponent(filePath.replace(/^\//, ""));
@@ -36,7 +41,9 @@ export async function readFile(sessionId: string, filePath: string): Promise<Rea
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       return {
         success: false,
         error: `Failed to read file: ${errorData.error || response.statusText}`,
@@ -65,7 +72,7 @@ export interface WriteResult {
 export async function writeFile(
   sessionId: string,
   filePath: string,
-  content: string
+  content: string,
 ): Promise<WriteResult> {
   try {
     const encodedPath = encodeURIComponent(filePath.replace(/^\//, ""));
@@ -78,7 +85,9 @@ export async function writeFile(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       return {
         success: false,
         error: `Failed to write file: ${errorData.error || response.statusText}`,
@@ -107,7 +116,7 @@ export async function editFile(
   sessionId: string,
   filePath: string,
   oldString: string | undefined,
-  newString: string
+  newString: string,
 ): Promise<EditResult> {
   try {
     let content: string;
@@ -158,7 +167,7 @@ export interface BashResult {
 export async function executeCommand(
   sessionId: string,
   command: string,
-  _description?: string
+  _description?: string,
 ): Promise<BashResult> {
   // Security check
   if (isCommandBlocked(command)) {
@@ -184,7 +193,9 @@ export async function executeCommand(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       return {
         success: false,
         stdout: "",
@@ -221,7 +232,7 @@ export interface GlobResult {
 export async function globFiles(
   sessionId: string,
   pattern: string,
-  path: string = "/home/blank/workspace"
+  path: string = "/home/blank/workspace",
 ): Promise<GlobResult> {
   try {
     // Use find command via bash
@@ -272,7 +283,7 @@ export async function grepSearch(
   sessionId: string,
   pattern: string,
   path: string = "/home/blank/workspace",
-  outputMode: string = "files_with_matches"
+  outputMode: string = "files_with_matches",
 ): Promise<GrepResult> {
   try {
     // Escape special characters for grep
@@ -295,24 +306,31 @@ export async function grepSearch(
 
     // Parse grep output: file:line:content
     const matches: GrepMatch[] = result.stdout
-      ? result.stdout.split("\n").filter((line: string) => line.trim() !== "").map((line: string) => {
-          const firstColon = line.indexOf(":");
-          const secondColon = line.indexOf(":", firstColon + 1);
+      ? result.stdout
+          .split("\n")
+          .filter((line: string) => line.trim() !== "")
+          .map((line: string) => {
+            const firstColon = line.indexOf(":");
+            const secondColon = line.indexOf(":", firstColon + 1);
 
-          if (firstColon === -1 || secondColon === -1) {
-            return null;
-          }
+            if (firstColon === -1 || secondColon === -1) {
+              return null;
+            }
 
-          const file = line.substring(0, firstColon);
-          const lineNum = parseInt(line.substring(firstColon + 1, secondColon), 10);
-          const content = line.substring(secondColon + 1);
+            const file = line.substring(0, firstColon);
+            const lineNum = parseInt(
+              line.substring(firstColon + 1, secondColon),
+              10,
+            );
+            const content = line.substring(secondColon + 1);
 
-          return {
-            file,
-            line: isNaN(lineNum) ? 0 : lineNum,
-            content,
-          };
-        }).filter((m: GrepMatch | null): m is GrepMatch => m !== null)
+            return {
+              file,
+              line: isNaN(lineNum) ? 0 : lineNum,
+              content,
+            };
+          })
+          .filter((m: GrepMatch | null): m is GrepMatch => m !== null)
       : [];
 
     return {
@@ -324,6 +342,184 @@ export async function grepSearch(
       success: false,
       matches: [],
       error: `Error grepping: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+export interface LockResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export async function lockFile(
+  sessionId: string,
+  filePath: string,
+): Promise<LockResult> {
+  try {
+    const url = `${SANDBOX_API_URL}/api/editor/lock?sessionId=${sessionId}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filePath }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      return {
+        success: false,
+        error: `Failed to lock file: ${errorData.error || response.statusText}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Locked ${filePath} for editing`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error locking file: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+export interface UnlockResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export async function unlockFile(
+  sessionId: string,
+  filePath: string,
+): Promise<UnlockResult> {
+  try {
+    const url = `${SANDBOX_API_URL}/api/editor/unlock?sessionId=${sessionId}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filePath }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      return {
+        success: false,
+        error: `Failed to unlock file: ${errorData.error || response.statusText}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Unlocked ${filePath}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error unlocking file: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+export interface OpenResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export async function openFile(
+  sessionId: string,
+  filePath: string,
+  line?: number,
+  column?: number,
+): Promise<OpenResult> {
+  try {
+    const url = `${SANDBOX_API_URL}/api/editor/open?sessionId=${sessionId}`;
+
+    const body: { filePath: string; line?: number; column?: number } = {
+      filePath,
+    };
+    if (line !== undefined) body.line = line;
+    if (column !== undefined) body.column = column;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      return {
+        success: false,
+        error: `Failed to open file: ${errorData.error || response.statusText}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Opened ${filePath}${line ? ` at line ${line}` : ""}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error opening file: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+export interface SetReadonlyResult {
+  success: boolean;
+  isGlobalReadonly?: boolean;
+  readonlyReason?: string;
+  message?: string;
+  error?: string;
+}
+
+export async function setReadonly(
+  sessionId: string,
+  readonly: boolean,
+  reason?: string,
+): Promise<SetReadonlyResult> {
+  try {
+    const url = `${SANDBOX_API_URL}/api/editor/readonly?sessionId=${sessionId}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ readonly, reason }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      return {
+        success: false,
+        error: `Failed to set readonly mode: ${errorData.error || response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      isGlobalReadonly: data.isGlobalReadonly,
+      readonlyReason: data.readonlyReason,
+      message: readonly ? "Editor locked" : "Editor unlocked",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error setting readonly mode: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }

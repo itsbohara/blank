@@ -1,4 +1,4 @@
-import { readFile, writeFile, editFile, executeCommand, globFiles, grepSearch } from "./sandbox-client";
+import { readFile, writeFile, editFile, executeCommand, globFiles, grepSearch, lockFile, unlockFile, openFile, setReadonly } from "./sandbox-client";
 
 export interface SandboxTools {
   read: (filePath: string) => Promise<unknown>;
@@ -7,6 +7,10 @@ export interface SandboxTools {
   bash: (command: string, description?: string) => Promise<unknown>;
   glob: (pattern: string, path?: string) => Promise<unknown>;
   grep: (pattern: string, path?: string, outputMode?: string) => Promise<unknown>;
+  lock: (filePath: string) => Promise<unknown>;
+  unlock: (filePath: string) => Promise<unknown>;
+  open: (filePath: string, line?: number, column?: number) => Promise<unknown>;
+  setReadonly: (readonly: boolean, reason?: string) => Promise<unknown>;
 }
 
 export function getSandboxTools(sessionId: string): SandboxTools {
@@ -28,6 +32,18 @@ export function getSandboxTools(sessionId: string): SandboxTools {
     },
     grep: async (pattern: string, path?: string, outputMode?: string) => {
       return grepSearch(sessionId, pattern, path, outputMode);
+    },
+    lock: async (filePath: string) => {
+      return lockFile(sessionId, filePath);
+    },
+    unlock: async (filePath: string) => {
+      return unlockFile(sessionId, filePath);
+    },
+    open: async (filePath: string, line?: number, column?: number) => {
+      return openFile(sessionId, filePath, line, column);
+    },
+    setReadonly: async (readonly: boolean, reason?: string) => {
+      return setReadonly(sessionId, readonly, reason);
     },
   };
 }
