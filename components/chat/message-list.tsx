@@ -1,15 +1,17 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useRef, useCallback, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ToolCallItem } from "./tool-call-item";
+import { ScrollToBottomButton } from "./scroll-to-bottom-button";
 import type { Message } from "@/types/chat";
 
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  onScrollStateChange?: (isNearBottom: boolean) => void;
 }
 
 interface TextMessageProps {
@@ -92,24 +94,86 @@ const EmptyState = memo(function EmptyState() {
   );
 });
 
+const SCROLL_THRESHOLD = 100; // pixels from bottom to consider "at bottom"
+
 export const MessageList = memo<MessageListProps>(function MessageList({
   messages,
   isLoading,
   messagesEndRef,
+  onScrollStateChange,
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const lastMessageCountRef = useRef(messages.length);
+  const isUserScrollingRef = useRef(false);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messagesEndRef]);
+
+  // Check if user is near bottom
+  const checkScrollPosition = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNearBottom = distanceFromBottom < SCROLL_THRESHOLD;
+
+    setShowScrollButton(!isNearBottom);
+    onScrollStateChange?.(isNearBottom);
+  }, [onScrollStateChange]);
+
+  // Handle scroll events
+  const handleScroll = useCallback(() => {
+    isUserScrollingRef.current = true;
+    checkScrollPosition();
+  }, [checkScrollPosition]);
+
+  // Auto-scroll when new messages arrive (if user was at bottom)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const hasNewMessages = messages.length > lastMessageCountRef.current;
+    lastMessageCountRef.current = messages.length;
+
+    if (hasNewMessages && !showScrollButton) {
+      // User was at bottom, auto-scroll to new message
+      scrollToBottom();
+    }
+  }, [messages.length, showScrollButton, scrollToBottom]);
+
+  // Initial scroll check
+  useEffect(() => {
+    checkScrollPosition();
+  }, [checkScrollPosition]);
+
   const lastMessageIndex = messages.length - 1;
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 relative"
+        onScroll={handleScroll}
+      >
         <EmptyState />
         <div ref={messagesEndRef} />
+        <ScrollToBottomButton
+          visible={showScrollButton}
+          onClick={scrollToBottom}
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto p-4 space-y-4 relative"
+      onScroll={handleScroll}
+    >
       {messages.map((message, msgIndex) => (
         <MessageItem
           key={message.id}
@@ -119,6 +183,10 @@ export const MessageList = memo<MessageListProps>(function MessageList({
         />
       ))}
       <div ref={messagesEndRef} />
+      <ScrollToBottomButton
+        visible={showScrollButton}
+        onClick={scrollToBottom}
+      />
     </div>
   );
 });

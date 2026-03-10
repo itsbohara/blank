@@ -5,12 +5,14 @@ import type { Message, MessagePart, ChatHistoryItem } from "@/types/chat";
 
 interface UseChatOptions {
   sessionId: string | null;
+  userSessionId?: string | null;
 }
 
 interface UseChatReturn {
   messages: Message[];
   input: string;
   isLoading: boolean;
+  isLoadingHistory: boolean;
   setInput: (input: string) => void;
   sendMessage: () => Promise<void>;
   scrollToBottom: () => void;
@@ -26,12 +28,41 @@ type StreamEventType =
   | { type: "error"; error: string }
   | { type: "done" };
 
-export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
+export function useChat({ sessionId, userSessionId }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const finalAssistantPartsRef = useRef<MessagePart[]>([]);
+
+  // Load chat history when session changes
+  useEffect(() => {
+    if (!sessionId) {
+      setMessages([]);
+      return;
+    }
+
+    async function loadHistory() {
+      setIsLoadingHistory(true);
+      try {
+        const response = await fetch(`/api/session/${sessionId}/messages`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && Array.isArray(data.messages)) {
+            setMessages(data.messages);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load chat history:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+
+    loadHistory();
+  }, [sessionId]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,15 +106,15 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
 
             let newParts: MessagePart[];
             if (lastPart?.type === "text") {
-              // Replace last text part with updated content
               newParts = [
                 ...msg.parts.slice(0, -1),
                 { type: "text", content },
               ];
             } else {
-              // Add new text part
               newParts = [...msg.parts, { type: "text", content }];
             }
+
+            finalAssistantPartsRef.current = newParts;
 
             const newMessages = [...prev];
             newMessages[msgIndex] = { ...msg, parts: newParts };
@@ -106,8 +137,11 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
               status: "pending",
             };
 
+            const newParts = [...msg.parts, newPart];
+            finalAssistantPartsRef.current = newParts;
+
             const newMessages = [...prev];
-            newMessages[msgIndex] = { ...msg, parts: [...msg.parts, newPart] };
+            newMessages[msgIndex] = { ...msg, parts: newParts };
             return newMessages;
           });
           break;
@@ -136,6 +170,8 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
                 ? { ...p, status: "success" as const, result: event.result }
                 : p
             );
+
+            finalAssistantPartsRef.current = newParts;
 
             const newMessages = [...prev];
             newMessages[msgIndex] = { ...msg, parts: newParts };
@@ -168,6 +204,8 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
                 : p
             );
 
+            finalAssistantPartsRef.current = newParts;
+
             const newMessages = [...prev];
             newMessages[msgIndex] = { ...msg, parts: newParts };
             return newMessages;
@@ -185,6 +223,26 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
     []
   );
 
+  const saveMessageToDb = useCallback(
+    async (role: "user" | "assistant", parts: MessagePart[]) => {
+      if (!userSessionId || !sessionId) return;
+      try {
+        await fetch(`/api/session/${sessionId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userSessionId,
+            role,
+            parts,
+          }),
+        });
+      } catch (error) {
+        console.error(`Failed to save ${role} message:`, error);
+      }
+    },
+    [userSessionId, sessionId]
+  );
+
   const sendMessage = useCallback(async () => {
     if (!input.trim() || !sessionId || isLoading) return;
 
@@ -196,10 +254,12 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    await saveMessageToDb("user", userMessage.parts);
+
     setInput("");
     setIsLoading(true);
+    finalAssistantPartsRef.current = [];
 
-    // Create streaming assistant message with empty parts
     const assistantMessageId = crypto.randomUUID();
     setMessages((prev) => [
       ...prev,
@@ -251,6 +311,11 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
           }
         }
       }
+
+      // Save completed assistant message to DB
+      if (finalAssistantPartsRef.current.length > 0) {
+        await saveMessageToDb("assistant", finalAssistantPartsRef.current);
+      }
     } catch (error) {
       if (error instanceof Error && error.name !== "AbortError") {
         setMessages((prev) => [
@@ -267,7 +332,7 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
       abortControllerRef.current = null;
       scrollToBottom();
     }
-  }, [input, sessionId, isLoading, history, handleStreamEvent, scrollToBottom]);
+  }, [input, sessionId, isLoading, history, handleStreamEvent, scrollToBottom, saveMessageToDb]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -282,6 +347,7 @@ export function useChat({ sessionId }: UseChatOptions): UseChatReturn {
     messages,
     input,
     isLoading,
+    isLoadingHistory,
     setInput,
     sendMessage,
     scrollToBottom,

@@ -7,6 +7,7 @@ import { ChatInput } from "@/components/chat/chat-input";
 
 interface ChatSidebarProps {
   sessionId: string | null;
+  userSessionId?: string | null;
 }
 
 function LoadingState() {
@@ -21,16 +22,36 @@ function LoadingState() {
   );
 }
 
-export function ChatSidebar({ sessionId }: ChatSidebarProps) {
-  const { messages, input, isLoading, setInput, sendMessage, messagesEndRef } =
-    useChat({ sessionId });
+function LoadingHistoryState() {
+  return (
+    <div className="w-full h-full flex flex-col">
+      <div className="h-12 border-b flex items-center px-4">
+        <h3 className="font-medium text-sm">AI Assistant</h3>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <div className="h-3 w-24 bg-muted rounded mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground">Loading history...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ChatSidebar({ sessionId, userSessionId }: ChatSidebarProps) {
+  const { messages, input, isLoading, isLoadingHistory, setInput, sendMessage, messagesEndRef } =
+    useChat({ sessionId, userSessionId });
 
   if (!sessionId) {
     return <LoadingState />;
   }
 
+  if (isLoadingHistory) {
+    return <LoadingHistoryState />;
+  }
+
   return (
-    <div className="w-full h-full flex flex-col bg-card">
+    <div className="w-full h-full flex flex-col bg-card relative">
       <div className="h-12 border-b flex items-center px-4">
         <h3 className="font-medium text-sm">AI Assistant</h3>
       </div>
