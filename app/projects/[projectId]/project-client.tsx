@@ -54,7 +54,7 @@ export function ProjectClient({
   const [sandboxUrl, setSandboxUrl] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [chatExpanded, setChatExpanded] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [previewTimestamp, setPreviewTimestamp] = useState<number>(Date.now());
@@ -108,18 +108,6 @@ export function ProjectClient({
 
     initializeSandbox();
   }, [project.id, project.template, existingSandboxSessionId]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg font-medium">
-          Initializing sandbox environment...
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">{project.name}</p>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -225,39 +213,46 @@ export function ProjectClient({
                   </TabsList>
                 </div>
 
-                {sandboxUrl && previewUrl && sessionId ? (
-                  <TabsContent
-                    value="code"
-                    className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
-                    forceMount
-                  >
-                    <div className="h-full relative">
-                      {!iframeLoaded && !iframeError && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-                          <p className="text-sm text-muted-foreground">
-                            Loading editor...
-                          </p>
-                        </div>
-                      )}
-                      {iframeError && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
-                          <p className="text-red-600 mb-2">
-                            Failed to load editor
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {iframeError}
-                          </p>
-                          <Button
-                            onClick={() => window.location.reload()}
-                            variant="outline"
-                            size="sm"
-                          >
-                            Reload Page
-                          </Button>
-                        </div>
-                      )}
+                <TabsContent
+                  value="code"
+                  className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
+                  forceMount
+                >
+                  <div className="h-full relative">
+                    {!sandboxUrl && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                        <p className="text-sm font-medium">Initializing sandbox environment...</p>
+                        <p className="text-xs text-muted-foreground mt-2">You can send messages while the preview loads</p>
+                      </div>
+                    )}
+                    {sandboxUrl && !iframeLoaded && !iframeError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Loading editor...
+                        </p>
+                      </div>
+                    )}
+                    {iframeError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                        <p className="text-red-600 mb-2">
+                          Failed to load editor
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {iframeError}
+                        </p>
+                        <Button
+                          onClick={() => window.location.reload()}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Reload Page
+                        </Button>
+                      </div>
+                    )}
 
+                    {sandboxUrl && (
                       <iframe
                         key={`${sessionId}-code`}
                         src={sandboxUrl}
@@ -273,32 +268,44 @@ export function ProjectClient({
                           setIframeError("Failed to load sandbox environment");
                         }}
                       />
-                    </div>
-                  </TabsContent>
-                ) : null}
+                    )}
+                  </div>
+                </TabsContent>
 
-                {sandboxUrl && previewUrl && sessionId ? (
-                  <TabsContent
-                    value="preview"
-                    className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
-                    forceMount
-                  >
+                <TabsContent
+                  value="preview"
+                  className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
+                  forceMount
+                >
+                  {!sandboxUrl ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-background">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                      <p className="text-sm font-medium">Initializing sandbox environment...</p>
+                      <p className="text-xs text-muted-foreground mt-2">You can send messages while the preview loads</p>
+                    </div>
+                  ) : (
                     <iframe
                       key={`${sessionId}-preview-${previewTimestamp}`}
-                      src={previewUrl}
+                      src={previewUrl || ""}
                       className="w-full h-full border-0"
                       allow="clipboard-read; clipboard-write"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                     />
-                  </TabsContent>
-                ) : null}
+                  )}
+                </TabsContent>
 
-                {sandboxUrl && previewUrl && sessionId ? (
-                  <TabsContent
-                    value="split"
-                    className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
-                    forceMount
-                  >
+                <TabsContent
+                  value="split"
+                  className="flex-1 mt-0 h-full data-[state=inactive]:hidden"
+                  forceMount
+                >
+                  {!sandboxUrl ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-background">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                      <p className="text-sm font-medium">Initializing sandbox environment...</p>
+                      <p className="text-xs text-muted-foreground mt-2">You can send messages while the preview loads</p>
+                    </div>
+                  ) : (
                     <div className="h-full flex">
                       <div className="w-1/2 h-full relative">
                         {!iframeLoaded && !iframeError && (
@@ -332,15 +339,15 @@ export function ProjectClient({
                       <div className="w-1/2 h-full border-l">
                         <iframe
                           key={`${sessionId}-split-preview-${previewTimestamp}`}
-                          src={previewUrl}
+                          src={previewUrl || ""}
                           className="w-full h-full border-0"
                           allow="clipboard-read; clipboard-write"
                           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                         />
                       </div>
                     </div>
-                  </TabsContent>
-                ) : null}
+                  )}
+                </TabsContent>
               </Tabs>
             </div>
           </div>

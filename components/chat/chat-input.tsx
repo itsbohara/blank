@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 interface ChatInputProps {
   input: string;
   isLoading: boolean;
+  disabled?: boolean;
   onInputChange: (value: string) => void;
   onSend: () => void;
 }
@@ -15,6 +16,7 @@ interface ChatInputProps {
 export function ChatInput({
   input,
   isLoading,
+  disabled,
   onInputChange,
   onSend,
 }: ChatInputProps) {
@@ -32,13 +34,13 @@ export function ChatInput({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the AI..."
-          disabled={isLoading}
+          placeholder={disabled ? "Initializing environment..." : "Ask the AI..."}
+          disabled={isLoading || disabled}
           className="flex-1"
         />
         <Button
           onClick={onSend}
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || !input.trim() || disabled}
           size="icon"
         >
           {isLoading ? (
