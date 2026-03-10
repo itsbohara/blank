@@ -186,7 +186,7 @@ export function ProjectClient({
         {/* AI Chat Sidebar */}
         {chatExpanded && (
           <div className="w-96 border-r bg-card flex flex-col overflow-hidden">
-            <ChatSidebar sessionId={sessionId} />
+            <ChatSidebar sessionId={sessionId} userSessionId={activeUserSession?.id} />
           </div>
         )}
 
